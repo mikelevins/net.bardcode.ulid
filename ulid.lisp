@@ -2,6 +2,7 @@
 
 (in-package #:net.bardcode.ulid)
 
+;;; Crockford's Base32
 (defvar *base32-characters* "0123456789ABCDEFGHJKMNPQRSTVWXYZ")
 (defvar *ulid-random-state* nil)
 (defvar +seconds-between-lisp-epoch-and-unix-epoch+ 2208988800)
@@ -32,7 +33,7 @@
                (milliseconds->base32 (or milliseconds (milliseconds-now)))
                (progn (unless *ulid-random-state*
                         (setf *ulid-random-state* (make-random-state t)))
-                      (loop for i from 0 upto 16
+                      (loop for i from 0 upto 15
                             collect (any *base32-characters* *ulid-random-state*)))))
 
 #+nil (time (loop for i from 0 below 1000000 do (make-ulid)))
