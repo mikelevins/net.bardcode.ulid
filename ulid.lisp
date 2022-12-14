@@ -4,11 +4,13 @@
 
 ;;; Crockford's Base32
 (defvar *base32-characters* "0123456789ABCDEFGHJKMNPQRSTVWXYZ")
-(defvar *ulid-random-state* nil)
 (defvar +seconds-between-lisp-epoch-and-unix-epoch+ 2208988800)
+(defvar +48-set-bits+ #b111111111111111111111111111111111111111111111111)
+(defvar +80-set-bits+ #b11111111111111111111111111111111111111111111111111111111111111111111111111111111)
+(defvar +128-set-bits+ #xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
 
-(defmethod any ((s sequence) &optional (random-state *random-state*))
-  (elt s (random (length s) random-state)))
+(defmethod any ((s sequence) &optional (prng ironclad:*prng*))
+  (elt s (ironclad:strong-random (length s) prng)))
 
 (defun milliseconds-now ()
   #+sbcl
@@ -21,19 +23,31 @@
         +seconds-between-lisp-epoch-and-unix-epoch+)
      1000))
 
-(defun milliseconds->base32 (ms)
-  (let ((bitstring (format nil "~2,50,'0r" ms)))
-    (loop for start from 0 upto 45 by 5
-          for end = (+ start 5)
-          collect (let ((i (parse-integer (subseq bitstring start end) :radix 2)))
-                    (elt *base32-characters* i)))))
+(defun get-ulid-timestamp-bytes (&optional time-milliseconds)
+  (reverse (cl-intbytes:int->octets (or time-milliseconds
+                               (milliseconds-now))
+                           6)))
 
+#+nil (get-ulid-timestamp-bytes)
+
+(defun get-ulid-random-bytes (&optional (prng ironclad:*prng*))
+  (cl-intbytes:int->octets (ironclad:strong-random +80-set-bits+ prng)
+                           10))
+
+#+nil (get-ulid-random-bytes)
+
+;;; binary ulid, returned as a vector of bytes
+;;; create as time bytes + random bytes
 (defun make-ulid (&optional milliseconds)
-  (concatenate 'string
-               (milliseconds->base32 (or milliseconds (milliseconds-now)))
-               (progn (unless *ulid-random-state*
-                        (setf *ulid-random-state* (make-random-state t)))
-                      (loop for i from 0 upto 15
-                            collect (any *base32-characters* *ulid-random-state*)))))
+  (let* ((mss-bytes (get-ulid-timestamp-bytes milliseconds))
+         (random-bytes (get-ulid-random-bytes)))
+    (concatenate 'vector mss-bytes random-bytes)))
 
 #+nil (time (loop for i from 0 below 1000000 do (make-ulid)))
+
+(defun ulid->hex-string (ulid)
+  (with-output-to-string (out)
+    (loop for b across ulid
+          do (format out "~(~2,'0x~)" b))))
+
+#+nil (length (ulid->hex-string (make-ulid)))
