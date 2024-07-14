@@ -15,7 +15,7 @@
 (defun milliseconds-now ()
   #+sbcl
   (multiple-value-bind (sec microsec) (sb-ext:get-time-of-day)
-    (+ (* 1000 sec) (round (/ microsec 1000))))
+    (+ (* 1000 (- sec +seconds-between-lisp-epoch-and-unix-epoch+)) (round (/ microsec 1000))))
   ;; TODO: add cases for other lisps that yield results with millisecond precision
   ;;       the below is to the nearest second
   #-sbcl
@@ -44,6 +44,7 @@
     (concatenate 'vector mss-bytes random-bytes)))
 
 #+nil (time (loop for i from 0 below 1000000 do (make-ulid)))
+#+nil (length (make-ulid))
 
 (defun ulid->hex-string (ulid)
   (with-output-to-string (out)
